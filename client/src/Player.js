@@ -193,7 +193,7 @@ function Player() {
                 </h3>
 
                 <p className="text-[10px] text-gray-400 mt-1">
-                  EE, MMMUT GKP
+                  Vision & Strategy
                 </p>
 
               </div>
@@ -210,6 +210,22 @@ function Player() {
 
                 <p className="text-[10px] text-gray-400 mt-1">
                   Product & Vision
+                </p>
+
+              </div>
+
+              <div className="bg-[#111] border border-blue-900/30 rounded-xl px-3 py-2">
+
+                <p className="text-[9px] uppercase text-gray-500 mb-1 tracking-widest">
+                  Team
+                </p>
+
+                <h3 className="font-bold text-sm text-blue-400">
+                  Uploaders
+                </h3>
+
+                <p className="text-[10px] text-gray-400 mt-1">
+                  Pushpendra, Mohit, Anshul, Rohit
                 </p>
 
               </div>

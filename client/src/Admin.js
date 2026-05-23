@@ -9,6 +9,8 @@ function Admin() {
   const [artist, setArtist] = useState("");
   const [audio, setAudio] = useState(null);
 
+  const [loading, setLoading] = useState(false);
+
   // FETCH SONGS
 
   const fetchSongs = async () => {
@@ -22,12 +24,16 @@ function Admin() {
       setSongs(res.data);
 
     } catch (err) {
+
       console.log(err);
+
     }
   };
 
   useEffect(() => {
+
     fetchSongs();
+
   }, []);
 
   // UPLOAD SONG
@@ -35,6 +41,16 @@ function Admin() {
   const uploadSong = async (e) => {
 
     e.preventDefault();
+
+    if (!audio) {
+
+      alert("Please select audio file");
+
+      return;
+
+    }
+
+    setLoading(true);
 
     const formData = new FormData();
 
@@ -58,7 +74,23 @@ function Admin() {
       fetchSongs();
 
     } catch (err) {
+
       console.log(err);
+
+      if (err.response?.data?.message) {
+
+        alert(err.response.data.message);
+
+      } else {
+
+        alert("Upload Failed");
+
+      }
+
+    } finally {
+
+      setLoading(false);
+
     }
   };
 
@@ -75,7 +107,9 @@ function Admin() {
       fetchSongs();
 
     } catch (err) {
+
       console.log(err);
+
     }
   };
 
@@ -136,6 +170,7 @@ function Admin() {
                 setTitle(e.target.value)
               }
               className="w-full p-3 rounded-2xl bg-black border border-purple-700 outline-none focus:border-purple-400 text-sm"
+              required
             />
 
             <input
@@ -146,6 +181,7 @@ function Admin() {
                 setArtist(e.target.value)
               }
               className="w-full p-3 rounded-2xl bg-black border border-purple-700 outline-none focus:border-purple-400 text-sm"
+              required
             />
 
             <input
@@ -155,12 +191,20 @@ function Admin() {
                 setAudio(e.target.files[0])
               }
               className="w-full p-3 rounded-2xl bg-black border border-purple-700 text-sm"
+              required
             />
 
             <button
-              className="w-full p-3 rounded-2xl bg-gradient-to-r from-purple-600 to-blue-500 text-lg font-bold hover:scale-[1.02] transition-all duration-300 shadow-lg shadow-purple-600/40"
+              disabled={loading}
+              className="w-full p-3 rounded-2xl bg-gradient-to-r from-purple-600 to-blue-500 text-lg font-bold hover:scale-[1.02] transition-all duration-300 shadow-lg shadow-purple-600/40 disabled:opacity-50"
             >
-              Upload Song
+
+              {
+                loading
+                  ? "Uploading..."
+                  : "Upload Song"
+              }
+
             </button>
 
           </form>
