@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
+import logo from "./assets/dhoon-logo.svg";
 
 import {
   FaPlay,
@@ -169,27 +170,11 @@ function Player() {
 
             <div className="flex items-center gap-4">
 
-              <div className="relative">
-
-                <div className="absolute inset-0 bg-purple-600 blur-2xl opacity-40 rounded-full" />
-
-                <div className="relative w-12 h-12 lg:w-14 lg:h-14 rounded-2xl bg-gradient-to-br from-purple-500 via-purple-600 to-blue-500 flex items-center justify-center text-2xl font-black">
-                  D
-                </div>
-
-              </div>
-
-              <div>
-
-                <h1 className="text-3xl lg:text-4xl font-black">
-                  Dhoon
-                </h1>
-
-                <p className="text-gray-400 text-xs lg:text-sm mt-1">
-                  Future
-                </p>
-
-              </div>
+              <img
+                src={logo}
+                alt="Dhoon Logo"
+                className="w-[180px] lg:w-[260px] object-contain"
+              />
 
             </div>
 
