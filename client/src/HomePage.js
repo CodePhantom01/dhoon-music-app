@@ -24,7 +24,7 @@ function HomePage() {
           />
 
           <p className="text-gray-400 mt-3 text-sm md:text-lg tracking-wide">
-            Future of Independent Music Streaming
+            Future of Independent
           </p>
 
         </div>

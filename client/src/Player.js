@@ -186,7 +186,7 @@ function Player() {
                 </h1>
 
                 <p className="text-gray-400 text-xs lg:text-sm mt-1">
-                  Future of Independent Music Streaming
+                  Future
                 </p>
 
               </div>
