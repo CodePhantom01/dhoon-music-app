@@ -1,0 +1,58 @@
+<svg width="700" height="220" viewBox="0 0 700 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D946EF"/>
+      <stop offset="100%" stop-color="#3B82F6"/>
+    </linearGradient>
+
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="700" height="220" fill="black"/>
+
+  <!-- Main D -->
+  <path
+    d="M60 40H140C215 40 265 80 265 110C265 140 215 180 140 180H60V40Z"
+    fill="url(#grad)"
+    filter="url(#glow)"
+  />
+
+  <!-- Inner Black -->
+  <path
+    d="M105 75H135C175 75 205 92 205 110C205 128 175 145 135 145H105V75Z"
+    fill="black"
+  />
+
+  <!-- Music Bars -->
+  <rect x="108" y="98" width="10" height="24" rx="5" fill="url(#grad)"/>
+  <rect x="126" y="82" width="10" height="56" rx="5" fill="url(#grad)"/>
+  <rect x="144" y="68" width="10" height="84" rx="5" fill="url(#grad)"/>
+  <rect x="162" y="82" width="10" height="56" rx="5" fill="url(#grad)"/>
+  <rect x="180" y="98" width="10" height="24" rx="5" fill="url(#grad)"/>
+
+  <!-- Side Dots -->
+  <circle cx="96" cy="110" r="8" fill="url(#grad)"/>
+  <circle cx="194" cy="110" r="8" fill="url(#grad)"/>
+
+  <!-- Text -->
+  <text
+    x="310"
+    y="138"
+    fill="white"
+    font-size="86"
+    font-family="Poppins, Arial, sans-serif"
+    font-weight="700"
+    letter-spacing="1"
+  >
+    Dhoon
+  </text>
+
+</svg>
