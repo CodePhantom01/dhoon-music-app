@@ -122,7 +122,7 @@ function Player() {
       audioRef.current.play();
     }
 
-  }, [currentIndex]);
+ }, [currentIndex, isPlaying]);
 
   // PLAYER FUNCTIONS
 
