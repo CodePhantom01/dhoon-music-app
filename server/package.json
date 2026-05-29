@@ -12,13 +12,12 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "cloudinary": "^1.41.3",
+    "@aws-sdk/client-s3": "^3.1056.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "mongoose": "^9.6.2",
-    "multer": "^2.1.1",
-    "multer-storage-cloudinary": "^4.0.0"
+    "multer": "^2.1.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

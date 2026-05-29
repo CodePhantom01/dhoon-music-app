@@ -1,16 +1,9 @@
 const multer = require("multer");
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
-const cloudinary = require("../config/cloudinary");
 
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
+const storage = multer.memoryStorage();
 
-  params: {
-    folder: "songs",
-    resource_type: "video",
-  },
+const upload = multer({
+  storage,
 });
-
-const upload = multer({ storage });
 
 module.exports = upload;
