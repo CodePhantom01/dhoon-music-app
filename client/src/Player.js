@@ -80,7 +80,7 @@ function Player() {
     return db.get("songs", id);
   };
 
-  const fetchSongs = async () => {
+  const fetchSongs = useCallback(async () => {
     try {
       const res = await api.get("/api/songs");
       setSongs(res.data);
@@ -88,26 +88,30 @@ function Player() {
     } catch (err) {
       console.error(err);
       setIsOnline(false);
+
       const offline = await loadDownloadedSongs();
 
       if (offline.length > 0) {
         setShowDownloads(true);
       }
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchSongs();
     loadDownloadedSongs();
-  }, []);
+  }, [fetchSongs]);
 
   useEffect(() => {
+
     const goOnline = () => {
       setIsOnline(true);
       fetchSongs();
     };
 
-    const goOffline = () => setIsOnline(false);
+    const goOffline = () => {
+      setIsOnline(false);
+    };
 
     window.addEventListener("online", goOnline);
     window.addEventListener("offline", goOffline);
@@ -116,7 +120,8 @@ function Player() {
       window.removeEventListener("online", goOnline);
       window.removeEventListener("offline", goOffline);
     };
-  }, []);
+
+  }, [fetchSongs]);
 
   useEffect(() => {
     setCurrentIndex(0);
