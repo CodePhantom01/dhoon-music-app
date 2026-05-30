@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "react-loader-spinner": "^8.0.2"
+    "react-loader-spinner": "^8.0.2",
+    "workbox-webpack-plugin": "^7.4.1"
   }
 }
