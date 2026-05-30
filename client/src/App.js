@@ -1,105 +1,48 @@
 import { useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import Admin from "./Admin";
 import Player from "./Player";
 import Login from "./Login";
-
-function App() {
-
-  const [page, setPage] = useState("player");
-
+function AdminRoute() {
   const [isAdmin, setIsAdmin] = useState(
-    localStorage.getItem("admin") === "true"
+    () => !!localStorage.getItem("adminToken")
   );
 
-  // LOGOUT
-
   const logout = () => {
-
+    localStorage.removeItem("adminToken");
     localStorage.removeItem("admin");
-
     setIsAdmin(false);
-
-    setPage("player");
   };
 
-  // ADMIN PAGE
-
-  if (page === "admin") {
-
-    if (!isAdmin) {
-      return <Login setIsAdmin={setIsAdmin} />;
-    }
-
-    return (
-      <div>
-
-        {/* LOGOUT BUTTON */}
-
-        <button
-          onClick={logout}
-          className="fixed top-4 right-4 z-50 bg-red-500 text-white px-5 py-2 rounded-xl"
-        >
-          Logout
-        </button>
-
-        <Admin />
-
-      </div>
-    );
+  if (!isAdmin) {
+    return <Login setIsAdmin={setIsAdmin} />;
   }
-
-  // USER PLAYER
-
-  if (page === "player") {
-    return <Player setPage={setPage} />;
-  }
-
-  // HOME PAGE
 
   return (
+    <div>
+      <button
+        onClick={logout}
+        className="fixed top-4 right-4 z-50 bg-red-500 text-white px-5 py-2 rounded-xl"
+      >
+        Logout
+      </button>
 
-    <div className="min-h-screen bg-black text-white flex items-center justify-center px-4">
-
-      <div className="grid md:grid-cols-2 gap-8 w-full max-w-5xl">
-
-        {/* USER */}
-
-        <div
-          onClick={() => setPage("player")}
-          className="cursor-pointer rounded-3xl border border-purple-900/30 bg-[#111] p-10 hover:scale-105 transition-all"
-        >
-
-          <h1 className="text-5xl font-black mb-4">
-            🎵 User
-          </h1>
-
-          <p className="text-gray-400 text-lg">
-            Listen Songs & Stream Music
-          </p>
-
-        </div>
-
-        {/* ADMIN */}
-
-        <div
-          onClick={() => setPage("admin")}
-          className="cursor-pointer rounded-3xl border border-blue-900/30 bg-[#111] p-10 hover:scale-105 transition-all"
-        >
-
-          <h1 className="text-5xl font-black mb-4">
-            🔐 Admin
-          </h1>
-
-          <p className="text-gray-400 text-lg">
-            Upload & Manage Songs
-          </p>
-
-        </div>
-
-      </div>
-
+      <Admin />
     </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Player />} />
+        <Route path="/music" element={<Navigate to="/" replace />} />
+        <Route path="/admin" element={<AdminRoute />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

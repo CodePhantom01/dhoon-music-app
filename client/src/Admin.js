@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import { useNavigate } from "react-router-dom";
+import { api } from "./api";
 
 function Admin() {
 
+  const navigate = useNavigate();
   const [songs, setSongs] = useState([]);
 
   const [title, setTitle] = useState("");
@@ -17,9 +19,7 @@ function Admin() {
 
     try {
 
-      const res = await axios.get(
-        "https://dhoon-music-app.onrender.com/api/songs"
-      );
+      const res = await api.get("/api/songs");
 
       setSongs(res.data);
 
@@ -60,10 +60,7 @@ function Admin() {
 
     try {
 
-      await axios.post(
-        "https://dhoon-music-app.onrender.com/api/songs/upload",
-        formData
-      );
+      await api.post("/api/songs/upload", formData);
 
       alert("Song Uploaded");
 
@@ -100,9 +97,7 @@ function Admin() {
 
     try {
 
-      await axios.delete(
-        `https://dhoon-music-app.onrender.com/api/songs/${id}`
-      );
+      await api.delete(`/api/songs/${id}`);
 
       fetchSongs();
 
@@ -121,7 +116,7 @@ function Admin() {
 
       <div className="border-b border-purple-800 px-4 lg:px-6 py-4 flex items-center justify-between">
 
-        <div className="flex items-center gap-3 lg:gap-4">
+        <div className="flex items-center gap-3 lg:gap-4 flex-wrap">
 
           {/* LOGO */}
 
@@ -142,6 +137,13 @@ function Admin() {
           </div>
 
         </div>
+
+        <button
+          onClick={() => navigate("/")}
+          className="px-4 py-2 rounded-xl bg-[#111] border border-purple-700 text-sm font-semibold"
+        >
+          Back to Player
+        </button>
 
       </div>
 

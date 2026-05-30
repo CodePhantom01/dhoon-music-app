@@ -1,6 +1,7 @@
 const express = require("express");
 const Song = require("../models/Song");
 const upload = require("../middleware/upload");
+const { requireAdmin } = require("../middleware/auth");
 
 const r2 = require("../config/r2");
 
@@ -8,20 +9,30 @@ const { PutObjectCommand } = require("@aws-sdk/client-s3");
 
 const router = express.Router();
 
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 // UPLOAD SONG
 router.post(
   "/upload",
+  requireAdmin,
   upload.single("audio"),
   async (req, res) => {
     try {
+
+      if (!req.file) {
+        return res.status(400).json({
+          message: "Audio file is required",
+        });
+      }
 
       const title = req.body.title.trim();
 
       // CHECK IF SONG TITLE ALREADY EXISTS
       const existingSong = await Song.findOne({
         title: {
-          $regex: new RegExp(`^${title}$`, "i"),
+          $regex: new RegExp(`^${escapeRegex(title)}$`, "i"),
         },
       });
 
@@ -89,8 +100,36 @@ router.get("/", async (req, res) => {
 });
 
 
+// STREAM AUDIO (for downloads — avoids browser CORS on R2)
+router.get("/:id/audio", async (req, res) => {
+  try {
+    const song = await Song.findById(req.params.id);
+
+    if (!song) {
+      return res.status(404).json({ message: "Song not found" });
+    }
+
+    const audioResponse = await fetch(song.audioUrl);
+
+    if (!audioResponse.ok) {
+      return res.status(502).json({ message: "Failed to fetch audio" });
+    }
+
+    const buffer = Buffer.from(await audioResponse.arrayBuffer());
+    const contentType =
+      audioResponse.headers.get("content-type") || "audio/mpeg";
+
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.send(buffer);
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ message: "Failed to load audio" });
+  }
+});
+
 // DELETE SONG
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireAdmin, async (req, res) => {
 
   try {
 
