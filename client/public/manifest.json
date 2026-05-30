@@ -1,6 +1,6 @@
 {
   "short_name": "Dhoon",
-  "name": "Dhoon",
+  "name": "Dhoon Music",
   "icons": [
     {
       "src": "logo192.png",
@@ -13,8 +13,8 @@
       "type": "image/png"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
-  "theme_color": "#000000",
+  "theme_color": "#7c3aed",
   "background_color": "#000000"
 }

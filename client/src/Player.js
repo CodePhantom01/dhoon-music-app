@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import logo from "./assets/dhoon-logo.svg";
+import { dbPromise } from "./db";
+import { FaDownload } from "react-icons/fa";
 
 import {
   FaPlay,
@@ -9,12 +11,15 @@ import {
   FaStepBackward,
   FaRandom,
   FaMusic,
-  FaSearch,
+  FaSearch
 } from "react-icons/fa";
 
-function Player() {
+function Player({ setPage }) {
 
+  const audioRef = useRef();
   const [songs, setSongs] = useState([]);
+  const [downloadedSongs, setDownloadedSongs] = useState([]);
+  const [showDownloads, setShowDownloads] = useState(false);
   const [search, setSearch] = useState("");
 
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -22,12 +27,13 @@ function Player() {
   const [isPlaying, setIsPlaying] = useState(false);
 
   const [shuffle, setShuffle] = useState(false);
+  const [shuffleQueue, setShuffleQueue] = useState([]);
+  const [playedSongs, setPlayedSongs] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   const [duration, setDuration] = useState(0);
 
   const [currentTime, setCurrentTime] = useState(0);
-
-  const audioRef = useRef();
 
   // FETCH SONGS
 
@@ -41,6 +47,10 @@ function Player() {
 
   }, []);
 
+  useEffect(() => {
+  loadDownloadedSongs();
+  }, []);
+
   // FILTER SONGS
 
   const filteredSongs = songs.filter((song) =>
@@ -48,19 +58,95 @@ function Player() {
     song.artist.toLowerCase().includes(search.toLowerCase())
   );
 
-  // PLAY SONG
+  //download Song
+    const downloadSong = async (song) => {
+    try {
+      const response = await fetch(song.audioUrl);
 
-  const playSong = (index) => {
+      const blob = await response.blob();
 
-    setCurrentIndex(index);
+      const db = await dbPromise;
 
-    setIsPlaying(true);
+      await db.put(
+        "songs",
+        {
+          id: song._id,
+          title: song.title,
+          artist: song.artist,
+          audio: blob,
+        },
+        song._id
+      );
 
-    setTimeout(() => {
-      audioRef.current.play();
-    }, 100);
+      await loadDownloadedSongs();
+
+      alert(`${song.title} downloaded successfully`);
+    } catch (err) {
+      console.log(err);
+      alert("Download failed");
+    }
   };
 
+  const getDownloadedSong = async (id) => {
+    const db = await dbPromise;
+
+    return await db.get("songs", id);
+  };
+
+  const loadDownloadedSongs = async () => {
+    const db = await dbPromise;
+
+    const allSongs = await db.getAll("songs");
+
+    setDownloadedSongs(allSongs);
+  };
+
+  // PLAY SONG
+
+const playSong = async (index) => {
+
+  const list = showDownloads
+    ? downloadedSongs
+    : filteredSongs;
+
+  const song = list[index];
+
+  if (showDownloads) {
+
+    const localUrl =
+      URL.createObjectURL(song.audio);
+
+    audioRef.current.src = localUrl;
+
+  } else {
+
+    const offlineSong =
+      await getDownloadedSong(song._id);
+
+    if (offlineSong) {
+
+      const localUrl =
+        URL.createObjectURL(
+          offlineSong.audio
+        );
+
+      audioRef.current.src = localUrl;
+
+    } else {
+
+      audioRef.current.src =
+        song.audioUrl;
+    }
+  }
+
+  setCurrentIndex(index);
+
+  setIsPlaying(true);
+
+  setTimeout(() => {
+    audioRef.current.play();
+  }, 100);
+};
   // PLAY / PAUSE
 
   const togglePlay = () => {
@@ -79,41 +165,79 @@ function Player() {
     setIsPlaying(!isPlaying);
   };
 
-  // NEXT SONG
+  const startShuffle = () => {
 
-  const nextSong = () => {
+    const indices = filteredSongs.map((_, index) => index);
 
-    if (shuffle) {
-
-      const random =
-        Math.floor(Math.random() * filteredSongs.length);
-
-      setCurrentIndex(random);
-
-    } else {
-
-      setCurrentIndex((prev) =>
-        prev === filteredSongs.length - 1
-          ? 0
-          : prev + 1
-      );
-    }
-
-    setIsPlaying(true);
-  };
-
-  // PREVIOUS SONG
-
-  const prevSong = () => {
-
-    setCurrentIndex((prev) =>
-      prev === 0
-        ? filteredSongs.length - 1
-        : prev - 1
+    const shuffled = [...indices].sort(
+      () => Math.random() - 0.5
     );
 
+    setShuffle(true);
+
+    setShuffleQueue(shuffled);
+
+    setPlayedSongs([shuffled[0]]);
+
+    setCurrentIndex(shuffled[0]);
+
     setIsPlaying(true);
   };
+
+  // NEXT SONG
+
+const nextSong = () => {
+
+  if (shuffle) {
+
+    const remainingSongs =
+      shuffleQueue.filter(
+        index =>
+          !playedSongs.includes(index)
+      );
+
+    if (remainingSongs.length === 0) {
+
+      setIsPlaying(false);
+
+      audioRef.current.pause();
+
+      return;
+    }
+
+    const nextIndex = remainingSongs[0];
+
+    setPlayedSongs(prev => [
+      ...prev,
+      nextIndex,
+    ]);
+
+    setCurrentIndex(nextIndex);
+
+    setIsPlaying(true);
+
+    return;
+  }
+
+  setCurrentIndex(prev =>
+    prev === filteredSongs.length - 1
+      ? 0
+      : prev + 1
+  );
+
+  setIsPlaying(true);
+};
+
+const prevSong = () => {
+
+  setCurrentIndex((prev) =>
+    prev === 0
+      ? filteredSongs.length - 1
+      : prev - 1
+  );
+
+  setIsPlaying(true);
+};
 
   // AUTO PLAY
 
@@ -168,15 +292,22 @@ function Player() {
 
             {/* LOGO */}
 
-            <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4">
 
-              <img
-                src={logo}
-                alt="Dhoon Logo"
-                className="w-[180px] lg:w-[260px] object-contain"
-              />
+            <img
+              src={logo}
+              alt="Dhoon Logo"
+              className="w-[180px] lg:w-[260px] object-contain"
+            />
 
-            </div>
+            <button
+              onClick={() => setPage("admin")}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-blue-500 text-white text-sm font-semibold"
+            >
+              Admin
+            </button>
+
+          </div>
 
             {/* FOUNDERS */}
 
@@ -306,44 +437,63 @@ function Player() {
             Trending Tracks
           </h2>
 
+        <div className="flex items-center gap-3">
+
+          <button
+            onClick={() =>
+              setShowDownloads(!showDownloads)
+            }
+            className="px-3 py-2 rounded-full bg-[#111] border border-purple-700 text-xs"
+          >
+            {showDownloads
+              ? "All Songs"
+              : "Downloaded"}
+          </button>
+
+          <button
+            onClick={startShuffle}
+            className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-600 to-blue-500 flex items-center justify-center"
+          >
+            <FaRandom />
+          </button>
+
           <div className="bg-gradient-to-r from-purple-600 to-blue-500 px-3 py-2 rounded-full text-[10px] lg:text-xs font-bold">
             {filteredSongs.length} Tracks
           </div>
 
         </div>
 
+        </div>
+
         {/* SONG GRID */}
 
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="flex flex-col gap-3">
 
           {
-            filteredSongs.map((song, index) => (
+            (showDownloads
+              ? downloadedSongs
+              : filteredSongs
+            ).map((song, index) => (
 
-              <div
-                key={song._id}
-                onClick={() => playSong(index)}
-                className={`group rounded-[24px] overflow-hidden border bg-[#111] cursor-pointer transition-all duration-300 hover:scale-[1.02] ${
-                  currentIndex === index
-                    ? "border-purple-500 shadow-2xl shadow-purple-900/20"
-                    : "border-[#222]"
-                }`}
-              >
+          <div
+            key={song._id}
+            onClick={() => playSong(index)}
+            className={`flex items-center justify-between p-3 rounded-2xl border bg-[#111] cursor-pointer transition-all ${
+              currentIndex === index
+                ? "border-purple-500 bg-purple-900/10"
+                : "border-[#222]"
+            }`}
+          >
 
                 {/* IMAGE */}
 
-                <div className="p-3">
-
-                  <div className="h-32 lg:h-40 rounded-[20px] bg-gradient-to-br from-purple-500 via-purple-600 to-blue-500 flex items-center justify-center text-5xl lg:text-6xl relative overflow-hidden">
-
-                    <FaMusic />
-
-                  </div>
-
+                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-500 via-purple-600 to-blue-500 flex items-center justify-center text-2xl">
+                  <FaMusic />
                 </div>
 
                 {/* INFO */}
 
-                <div className="px-4 pb-4">
+                <div className="flex-1 ml-4">
 
                   <h3 className="text-sm lg:text-lg font-bold truncate">
                     {song.title}
@@ -353,15 +503,29 @@ function Player() {
                     {song.artist}
                   </p>
 
-                  <div className="mt-4 flex items-center justify-between">
+                  <div className="flex items-center justify-between mt-2">
 
                     <div className="text-[8px] uppercase tracking-widest text-purple-400">
                       Dhoon Audio
                     </div>
 
-                    <button className="w-9 h-9 rounded-full bg-gradient-to-r from-purple-600 to-blue-500 flex items-center justify-center">
-                      <FaPlay className="text-xs" />
-                    </button>
+                    <div className="flex gap-2">
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadSong(song);
+                        }}
+                        className="w-9 h-9 rounded-full bg-[#222] flex items-center justify-center"
+                      >
+                        <FaDownload className="text-xs" />
+                      </button>
+
+                      <button className="w-9 h-9 rounded-full bg-gradient-to-r from-purple-600 to-blue-500 flex items-center justify-center">
+                        <FaPlay className="text-xs" />
+                      </button>
+
+                    </div>
 
                   </div>
 
@@ -407,11 +571,19 @@ function Player() {
                     <div className="min-w-0">
 
                       <h3 className="font-bold text-sm truncate">
-                        {filteredSongs[currentIndex]?.title}
+                        {(
+                          showDownloads
+                            ? downloadedSongs
+                            : filteredSongs
+                        )[currentIndex]?.title}
                       </h3>
 
                       <p className="text-gray-400 text-xs truncate">
-                        {filteredSongs[currentIndex]?.artist}
+                        {(
+                          showDownloads
+                            ? downloadedSongs
+                            : filteredSongs
+                        )[currentIndex]?.artist}
                       </p>
 
                     </div>
@@ -421,19 +593,6 @@ function Player() {
                   {/* CONTROLS */}
 
                   <div className="flex items-center gap-5">
-
-                    <button
-                      onClick={() =>
-                        setShuffle(!shuffle)
-                      }
-                      className={`text-lg ${
-                        shuffle
-                          ? "text-purple-500 scale-110"
-                          : "text-white"
-                      }`}
-                    >
-                      <FaRandom />
-                    </button>
 
                     <button
                       onClick={prevSong}
@@ -451,9 +610,18 @@ function Player() {
 
                       <div className="relative w-12 h-12 rounded-full bg-gradient-to-r from-purple-600 to-blue-500 flex items-center justify-center text-lg">
                         {
-                          isPlaying
-                            ? <FaPause />
-                            : <FaPlay />
+                          loading ? (
+                            <div className="flex items-end gap-[2px]">
+                              <span className="wave"></span>
+                              <span className="wave"></span>
+                              <span className="wave"></span>
+                              <span className="wave"></span>
+                            </div>
+                          ) : (
+                            isPlaying
+                              ? <FaPause />
+                              : <FaPlay />
+                          )
                         }
                       </div>
 
@@ -470,28 +638,61 @@ function Player() {
 
                 </div>
 
+                {/* MUSIC WAVEFORM */}
+
+                {isPlaying && (
+                  <div className="flex justify-center items-end gap-[3px] h-20 overflow-hidden px-2">
+
+                    {[...Array(70)].map((_, i) => (
+                      <span
+                        key={i}
+                        className="music-bar"
+                        style={{
+                          height: `${10 + ((i * 17) % 55)}px`,
+                          animationDelay: `${i * 0.05}s`,
+                        }}
+                      />
+                    ))}
+
+                  </div>
+                )}
+
                 {/* MODERN SEEK BAR */}
 
                 <div className="w-full bg-[#111] border border-purple-900/30 rounded-2xl p-3">
 
-                  <input
-                    type="range"
-                    min="0"
-                    max={duration || 0}
-                    value={currentTime}
-                    onChange={handleSeek}
-                    className="w-full h-1 appearance-none bg-purple-900 rounded-lg cursor-pointer"
-                  />
+                  {loading ? (
+
+                    <div className="flex justify-center items-end gap-1 h-10">
+
+                      <span className="wave"></span>
+                      <span className="wave"></span>
+                      <span className="wave"></span>
+                      <span className="wave"></span>
+                      <span className="wave"></span>
+                      <span className="wave"></span>
+                      <span className="wave"></span>
+
+                    </div>
+
+                  ) : (
+
+                    <input
+                      type="range"
+                      min="0"
+                      max={duration || 0}
+                      value={currentTime}
+                      onChange={handleSeek}
+                      className="w-full h-1 appearance-none bg-purple-900 rounded-lg cursor-pointer"
+                    />
+
+                  )}
 
                   <div className="flex items-center justify-between text-[10px] text-gray-400 mt-2">
 
-                    <span>
-                      {formatTime(currentTime)}
-                    </span>
+                    <span>{formatTime(currentTime)}</span>
 
-                    <span>
-                      {formatTime(duration)}
-                    </span>
+                    <span>{formatTime(duration)}</span>
 
                   </div>
 
@@ -505,6 +706,9 @@ function Player() {
                   onTimeUpdate={handleTimeUpdate}
                   onLoadedMetadata={handleTimeUpdate}
                   onEnded={nextSong}
+                  onWaiting={() => setLoading(true)}
+                  onCanPlay={() => setLoading(false)}
+                  onPlaying={() => setLoading(false)}
                 />
 
               </div>

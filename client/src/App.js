@@ -6,7 +6,7 @@ import Login from "./Login";
 
 function App() {
 
-  const [page, setPage] = useState("home");
+  const [page, setPage] = useState("player");
 
   const [isAdmin, setIsAdmin] = useState(
     localStorage.getItem("admin") === "true"
@@ -20,7 +20,7 @@ function App() {
 
     setIsAdmin(false);
 
-    setPage("home");
+    setPage("player");
   };
 
   // ADMIN PAGE
@@ -52,7 +52,7 @@ function App() {
   // USER PLAYER
 
   if (page === "player") {
-    return <Player />;
+    return <Player setPage={setPage} />;
   }
 
   // HOME PAGE
