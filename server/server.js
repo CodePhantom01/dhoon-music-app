@@ -4,6 +4,7 @@ const cors = require("cors");
 require("dotenv").config();
 
 const songRoutes = require("./routes/songRoutes");
+const authRoutes = require("./routes/authRoutes");
 
 const app = express();
 
@@ -14,6 +15,7 @@ mongoose.connect(process.env.MONGO_URI)
 .then(() => console.log("MongoDB Connected"))
 .catch((err) => console.log(err));
 
+app.use("/api/auth", authRoutes);
 app.use("/api/songs", songRoutes);
 
 app.get("/health", (req, res) => {

@@ -1,22 +1,32 @@
 import { useState } from "react";
+import { api } from "./api";
 
 function Login({ setIsAdmin }) {
 
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
 
-    // CHANGE PASSWORD HERE
+    setLoading(true);
 
-    if (password === "dhoonadmin123") {
+    try {
 
+      const res = await api.post("/api/auth/login", { password });
+
+      localStorage.setItem("adminToken", res.data.token);
       localStorage.setItem("admin", "true");
 
       setIsAdmin(true);
 
-    } else {
+    } catch {
 
       alert("Wrong Password");
+
+    } finally {
+
+      setLoading(false);
+
     }
   };
 
@@ -41,14 +51,20 @@ function Login({ setIsAdmin }) {
           onChange={(e) =>
             setPassword(e.target.value)
           }
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              handleLogin();
+            }
+          }}
           className="w-full bg-black border border-purple-900/30 rounded-2xl px-4 py-4 text-white outline-none focus:border-purple-500"
         />
 
         <button
           onClick={handleLogin}
-          className="w-full mt-6 bg-gradient-to-r from-purple-600 to-blue-500 py-4 rounded-2xl text-white font-bold text-lg"
+          disabled={loading}
+          className="w-full mt-6 bg-gradient-to-r from-purple-600 to-blue-500 py-4 rounded-2xl text-white font-bold text-lg disabled:opacity-50"
         >
-          Login
+          {loading ? "Logging in..." : "Login"}
         </button>
 
       </div>

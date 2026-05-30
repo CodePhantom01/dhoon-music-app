@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import { api } from "./api";
 
 function Home() {
 
@@ -7,7 +7,7 @@ function Home() {
 
   useEffect(() => {
 
-    axios.get("/api/songs")
+    api.get("/api/songs")
     .then((res) => {
       setSongs(res.data);
     });
