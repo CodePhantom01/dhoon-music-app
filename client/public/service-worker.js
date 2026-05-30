@@ -1,4 +1,4 @@
-const CACHE_NAME = "dhoon-v3";
+const CACHE_NAME = "dhoon-v10";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -11,26 +11,34 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(clients.claim());
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys.map((key) => {
+          if (key !== CACHE_NAME) {
+            return caches.delete(key);
+          }
+        })
+      )
+    )
+  );
+
+  self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
   event.respondWith(
-    caches.match(event.request).then((response) => {
+    caches.match(event.request).then((cached) => {
       return (
-        response ||
-        fetch(event.request).then((networkResponse) => {
-          const responseClone =
-            networkResponse.clone();
+        cached ||
+        fetch(event.request).then((response) => {
+          const responseClone = response.clone();
 
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(
-              event.request,
-              responseClone
-            );
+            cache.put(event.request, responseClone);
           });
 
-          return networkResponse;
+          return response;
         })
       );
     })
