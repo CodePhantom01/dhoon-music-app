@@ -227,7 +227,7 @@ function Player() {
     await loadDownloadedSongs();
   };
 
-  const setAudioSource = async (song) => {
+  const setAudioSource = useCallback(async (song) => {
     const useBlob =
       viewMode === "downloads" || song.audio instanceof Blob;
 
@@ -250,7 +250,7 @@ function Player() {
     }
 
     audioRef.current.src = song.audioUrl;
-  };
+  }, [viewMode]);
 
   const openPlaylistPicker = (song, e) => {
     e.stopPropagation();
@@ -358,7 +358,7 @@ function Player() {
         }
       }
     },
-    [activeList, viewMode]
+    [activeList, setAudioSource]
   );
 
   const handleAudioError = async () => {
