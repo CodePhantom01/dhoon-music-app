@@ -1,8 +1,18 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import logo from "./assets/dhoon-logo.svg";
 import { dbPromise } from "./db";
 import { api } from "./api";
+import PlaylistPicker from "./PlaylistPicker";
+import {
+  addTrackToPlaylist,
+  createPlaylist,
+  deletePlaylist,
+  getAllPlaylists,
+  removeTrackFromPlaylist,
+  resolvePlaylistTracks,
+  trackFromSong,
+} from "./playlists";
 
 import {
   FaPlay,
@@ -13,6 +23,8 @@ import {
   FaMusic,
   FaSearch,
   FaDownload,
+  FaList,
+  FaTrash,
 } from "react-icons/fa";
 
 function getSongId(song) {
@@ -27,7 +39,11 @@ function Player() {
 
   const [songs, setSongs] = useState([]);
   const [downloadedSongs, setDownloadedSongs] = useState([]);
-  const [showDownloads, setShowDownloads] = useState(false);
+  const [playlists, setPlaylists] = useState([]);
+  const [viewMode, setViewMode] = useState("all");
+  const [activePlaylistId, setActivePlaylistId] = useState(null);
+  const [pickerSong, setPickerSong] = useState(null);
+  const [newPlaylistName, setNewPlaylistName] = useState("");
   const [search, setSearch] = useState("");
 
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -58,7 +74,25 @@ function Player() {
       song.artist.toLowerCase().includes(search.toLowerCase())
   );
 
-  const activeList = showDownloads ? filteredDownloads : filteredSongs;
+  const activePlaylist = playlists.find((p) => p.id === activePlaylistId);
+
+  const playlistSongs = useMemo(
+    () => resolvePlaylistTracks(activePlaylist, songs, downloadedSongs),
+    [activePlaylist, songs, downloadedSongs]
+  );
+
+  const filteredPlaylistSongs = playlistSongs.filter(
+    (song) =>
+      song.title.toLowerCase().includes(search.toLowerCase()) ||
+      song.artist.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const activeList =
+    viewMode === "downloads"
+      ? filteredDownloads
+      : viewMode === "playlist"
+        ? filteredPlaylistSongs
+        : filteredSongs;
 
   const revokeBlobUrl = () => {
     if (blobUrlRef.current) {
@@ -92,14 +126,20 @@ function Player() {
       const offline = await loadDownloadedSongs();
 
       if (offline.length > 0) {
-        setShowDownloads(true);
+        setViewMode("downloads");
       }
     }
   }, []);
 
+  const loadPlaylists = async () => {
+    const list = await getAllPlaylists();
+    setPlaylists(list);
+  };
+
   useEffect(() => {
     fetchSongs();
     loadDownloadedSongs();
+    loadPlaylists();
   }, [fetchSongs]);
 
   useEffect(() => {
@@ -128,7 +168,7 @@ function Player() {
     setShuffle(false);
     setShuffleQueue([]);
     setPlayedSongs([]);
-  }, [showDownloads, search]);
+  }, [viewMode, activePlaylistId, search]);
 
   useEffect(() => {
     return () => revokeBlobUrl();
@@ -187,11 +227,97 @@ function Player() {
     await loadDownloadedSongs();
   };
 
+  const setAudioSource = async (song) => {
+    const useBlob =
+      viewMode === "downloads" || song.audio instanceof Blob;
+
+    if (useBlob) {
+      blobUrlRef.current = URL.createObjectURL(song.audio);
+      audioRef.current.src = blobUrlRef.current;
+      return;
+    }
+
+    const offlineSong = await getDownloadedSong(getSongId(song));
+
+    if (offlineSong) {
+      blobUrlRef.current = URL.createObjectURL(offlineSong.audio);
+      audioRef.current.src = blobUrlRef.current;
+      return;
+    }
+
+    if (!navigator.onLine) {
+      throw new Error("offline");
+    }
+
+    audioRef.current.src = song.audioUrl;
+  };
+
+  const openPlaylistPicker = (song, e) => {
+    e.stopPropagation();
+    setPickerSong(song);
+  };
+
+  const handleAddToPlaylist = async (playlistId, song) => {
+    const { added } = await addTrackToPlaylist(
+      playlistId,
+      trackFromSong(song)
+    );
+
+    await loadPlaylists();
+    setPickerSong(null);
+
+    if (added) {
+      alert(`Added to playlist`);
+    } else {
+      alert("Song is already in this playlist");
+    }
+  };
+
+  const handleCreatePlaylistWithSong = async (name, song) => {
+    const playlist = await createPlaylist(name);
+    await addTrackToPlaylist(playlist.id, trackFromSong(song));
+    await loadPlaylists();
+    alert(`Created "${name}" and added song`);
+  };
+
+  const handleCreateEmptyPlaylist = async (e) => {
+    e.preventDefault();
+
+    if (!newPlaylistName.trim()) {
+      return;
+    }
+
+    await createPlaylist(newPlaylistName.trim());
+    setNewPlaylistName("");
+    await loadPlaylists();
+  };
+
+  const handleRemoveFromPlaylist = async (song, e) => {
+    e.stopPropagation();
+    await removeTrackFromPlaylist(activePlaylistId, getSongId(song));
+    await loadPlaylists();
+  };
+
+  const handleDeletePlaylist = async (playlistId, e) => {
+    e?.stopPropagation();
+
+    if (!window.confirm("Delete this playlist?")) {
+      return;
+    }
+
+    await deletePlaylist(playlistId);
+
+    if (activePlaylistId === playlistId) {
+      setActivePlaylistId(null);
+    }
+
+    await loadPlaylists();
+  };
+
   const playSong = useCallback(
     async (index, options = {}) => {
       const { keepShuffle = false } = options;
-      const list = showDownloads ? filteredDownloads : filteredSongs;
-      const song = list[index];
+      const song = activeList[index];
 
       if (!song || !audioRef.current) {
         return;
@@ -205,22 +331,14 @@ function Player() {
 
       revokeBlobUrl();
 
-      if (showDownloads) {
-        blobUrlRef.current = URL.createObjectURL(song.audio);
-        audioRef.current.src = blobUrlRef.current;
-      } else {
-        const offlineSong = await getDownloadedSong(getSongId(song));
-
-        if (offlineSong) {
-          blobUrlRef.current = URL.createObjectURL(offlineSong.audio);
-          audioRef.current.src = blobUrlRef.current;
-        } else if (!navigator.onLine) {
-          alert("You are offline. Download this song first or open Downloaded tracks.");
-          setIsPlaying(false);
-          return;
-        } else {
-          audioRef.current.src = song.audioUrl;
-        }
+      try {
+        await setAudioSource(song);
+      } catch {
+        alert(
+          "You are offline. Download this song first or open Downloaded tracks."
+        );
+        setIsPlaying(false);
+        return;
       }
 
       setCurrentIndex(index);
@@ -240,13 +358,13 @@ function Player() {
         }
       }
     },
-    [showDownloads, filteredDownloads, filteredSongs]
+    [activeList, viewMode]
   );
 
   const handleAudioError = async () => {
     const song = activeList[currentIndex];
 
-    if (!song || showDownloads) {
+    if (!song || viewMode === "downloads") {
       return;
     }
 
@@ -486,7 +604,15 @@ function Player() {
 
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-5 pb-[230px]">
+      <div
+        className={`max-w-7xl mx-auto px-4 lg:px-8 py-5 transition-[padding-bottom] duration-300 ${
+          activeList.length > 0 && currentSong
+            ? isPlaying
+              ? "pb-[28rem] sm:pb-[26rem]"
+              : "pb-[18rem] sm:pb-[17rem]"
+            : "pb-8"
+        }`}
+      >
 
         <div className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-purple-700 via-purple-600 to-blue-600 p-5 lg:p-8 mb-7">
 
@@ -508,23 +634,71 @@ function Player() {
 
         </div>
 
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
 
-          <h2 className="text-lg lg:text-2xl font-bold">
-            {showDownloads ? "Downloaded Tracks" : "Trending Tracks"}
-          </h2>
+          <div className="flex items-center gap-2">
+            {viewMode === "playlist" && activePlaylistId && (
+              <button
+                onClick={() => setActivePlaylistId(null)}
+                className="text-sm text-purple-400 hover:text-purple-300"
+              >
+                ← Playlists
+              </button>
+            )}
 
-        <div className="flex items-center gap-3">
+            <h2 className="text-lg lg:text-2xl font-bold">
+              {viewMode === "downloads"
+                ? "Downloaded Tracks"
+                : viewMode === "playlist"
+                  ? activePlaylist
+                    ? activePlaylist.name
+                    : "My Playlists"
+                  : "Trending Tracks"}
+            </h2>
+          </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
 
           <button
-            onClick={() =>
-              setShowDownloads(!showDownloads)
-            }
-            className="px-3 py-2 rounded-full bg-[#111] border border-purple-700 text-xs"
+            onClick={() => {
+              setViewMode("all");
+              setActivePlaylistId(null);
+            }}
+            className={`px-3 py-2 rounded-full border text-xs ${
+              viewMode === "all"
+                ? "bg-purple-600 border-purple-500"
+                : "bg-[#111] border-purple-700"
+            }`}
           >
-            {showDownloads
-              ? "All Songs"
-              : "Downloaded"}
+            All Songs
+          </button>
+
+          <button
+            onClick={() => {
+              setViewMode("downloads");
+              setActivePlaylistId(null);
+            }}
+            className={`px-3 py-2 rounded-full border text-xs ${
+              viewMode === "downloads"
+                ? "bg-purple-600 border-purple-500"
+                : "bg-[#111] border-purple-700"
+            }`}
+          >
+            Downloaded
+          </button>
+
+          <button
+            onClick={() => {
+              setViewMode("playlist");
+              setActivePlaylistId(null);
+            }}
+            className={`px-3 py-2 rounded-full border text-xs ${
+              viewMode === "playlist"
+                ? "bg-purple-600 border-purple-500"
+                : "bg-[#111] border-purple-700"
+            }`}
+          >
+            Playlists
           </button>
 
           <button
@@ -543,15 +717,76 @@ function Player() {
 
         </div>
 
-        <div className="flex flex-col gap-3">
+        {viewMode === "playlist" && !activePlaylistId && (
+          <div className="mb-6">
+            <form
+              onSubmit={handleCreateEmptyPlaylist}
+              className="flex gap-2 mb-4"
+            >
+              <input
+                type="text"
+                placeholder="New playlist name"
+                value={newPlaylistName}
+                onChange={(e) => setNewPlaylistName(e.target.value)}
+                className="flex-1 bg-[#111] border border-purple-900/30 rounded-2xl px-4 py-3 text-sm outline-none focus:border-purple-500"
+              />
+              <button
+                type="submit"
+                className="px-5 py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-blue-500 text-sm font-semibold"
+              >
+                Create
+              </button>
+            </form>
 
+            {playlists.length === 0 ? (
+              <p className="text-gray-500 text-center py-6">
+                No playlists yet. Create one above, or use Add to playlist on any track.
+              </p>
+            ) : (
+              <div className="grid sm:grid-cols-2 gap-3">
+                {playlists.map((playlist) => (
+                  <div
+                    key={playlist.id}
+                    onClick={() => setActivePlaylistId(playlist.id)}
+                    className="p-4 rounded-2xl bg-[#111] border border-[#222] hover:border-purple-500 cursor-pointer transition-all"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h3 className="font-bold">{playlist.name}</h3>
+                        <p className="text-gray-500 text-xs mt-1">
+                          {playlist.tracks.length} songs
+                        </p>
+                      </div>
+                      <button
+                        onClick={(e) =>
+                          handleDeletePlaylist(playlist.id, e)
+                        }
+                        className="w-8 h-8 rounded-full bg-red-900/30 flex items-center justify-center text-red-400"
+                        title="Delete playlist"
+                      >
+                        <FaTrash className="text-xs" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3 scroll-pb-32">
+
+          {viewMode !== "playlist" || activePlaylistId ? (
+            <>
           {activeList.length === 0 && (
             <p className="text-gray-500 text-center py-8">
-              {showDownloads
+              {viewMode === "downloads"
                 ? "No downloaded songs yet. Tap the download icon on any track while online."
-                : !isOnline
-                  ? "You are offline. Open Downloaded or reconnect to load songs."
-                  : "No songs found."}
+                : viewMode === "playlist"
+                  ? "This playlist is empty. Add songs from All Songs."
+                  : !isOnline
+                    ? "You are offline. Open Downloaded or reconnect to load songs."
+                    : "No songs found."}
             </p>
           )}
 
@@ -591,7 +826,17 @@ function Player() {
 
                     <div className="flex gap-2">
 
-                      {!showDownloads && song.audioUrl && (
+                      {viewMode === "all" && (
+                        <button
+                          onClick={(e) => openPlaylistPicker(song, e)}
+                          className="w-9 h-9 rounded-full bg-[#222] flex items-center justify-center"
+                          title="Add to playlist"
+                        >
+                          <FaList className="text-xs" />
+                        </button>
+                      )}
+
+                      {viewMode === "all" && song.audioUrl && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -619,11 +864,21 @@ function Player() {
                         </button>
                       )}
 
-                      {showDownloads && (
+                      {viewMode === "downloads" && (
                         <button
                           onClick={(e) => removeDownload(song, e)}
                           className="w-9 h-9 rounded-full bg-red-900/40 border border-red-700 text-[10px] px-1"
                           title="Remove download"
+                        >
+                          ✕
+                        </button>
+                      )}
+
+                      {viewMode === "playlist" && activePlaylistId && (
+                        <button
+                          onClick={(e) => handleRemoveFromPlaylist(song, e)}
+                          className="w-9 h-9 rounded-full bg-red-900/40 border border-red-700 text-[10px] px-1"
+                          title="Remove from playlist"
                         >
                           ✕
                         </button>
@@ -642,9 +897,32 @@ function Player() {
               </div>
             ))}
 
+          <div
+            aria-hidden
+            className={`shrink-0 ${
+              activeList.length > 0 && currentSong
+                ? isPlaying
+                  ? "h-24 sm:h-20"
+                  : "h-8"
+                : "h-0"
+            }`}
+          />
+            </>
+          ) : null}
+
         </div>
 
       </div>
+
+      {pickerSong && (
+        <PlaylistPicker
+          song={pickerSong}
+          playlists={playlists}
+          onClose={() => setPickerSong(null)}
+          onCreatePlaylist={handleCreatePlaylistWithSong}
+          onAddToPlaylist={handleAddToPlaylist}
+        />
+      )}
 
       {activeList.length > 0 && currentSong && (
 
